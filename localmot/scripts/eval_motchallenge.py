@@ -308,8 +308,8 @@ def plot_comparisons(metrics):
 
   if FLAGS.diagnostics:
     plt.figure(figsize=(10, 10))
-    plots.plot_decompose_ata_scatter(
-        strict_metrics, level_set_power=-1, colors=tracker_colors,
+    plots.plot_decompose_scatter(
+        'ata', strict_metrics, level_set_power=-1, colors=tracker_colors,
         markers=tracker_markers, aspect=3, with_inset=True)
     basename = 'scatter_decompose_ata'
     plt.savefig(os.path.join(FLAGS.out_dir, basename + '.pdf'))
@@ -317,8 +317,8 @@ def plot_comparisons(metrics):
 
     for field in ['ata']:
       plt.figure()
-      plots.plot_decompose_ata_field(
-          strict_metrics.sort_values(field, ascending=False), field,
+      plots.plot_decompose_field(
+          field, strict_metrics.sort_values(field, ascending=False),
           colors=tracker_colors, markers=tracker_markers,
           legend_kwargs=dict(loc='lower right'))
       plt.ylabel(localmot.metrics.NAMES[field])

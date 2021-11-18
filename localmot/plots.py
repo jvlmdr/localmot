@@ -16,8 +16,8 @@
 
 __all__ = [
     'plot_horizon',
-    'plot_decompose_ata_scatter',
-    'plot_decompose_ata_field',
+    'plot_decompose_scatter',
+    'plot_decompose_field',
     'plot_decompose_horizon',
     'plot_ratio_scatter',
     'plot_level_sets',
@@ -120,7 +120,8 @@ def plot_horizon(
   return handles
 
 
-def plot_decompose_ata_scatter(
+def plot_decompose_scatter(
+    field,
     metrics,
     level_set_power=None,
     colors=None,
@@ -131,6 +132,7 @@ def plot_decompose_ata_scatter(
   """Plots precision-recall scatter for ATA and decompositions of each.
 
   Args:
+    field: Either 'ata' or 'idf1'.
     metrics: pd.DataFrame with index levels (tracker,).
     level_set_power: Power in generalized mean for level sets.
     colors: Dict that maps tracker to color.
@@ -139,6 +141,9 @@ def plot_decompose_ata_scatter(
     with_inset: Draw inset in bottom left quadrant?
     fig: Figure in which to plot.
   """
+  if field not in ['ata', 'idf1']:
+    raise ValueError('unknown field', field)
+
   fig = fig or plt.gcf()
   (ax_pr, ax_2d), (ax_spare, ax_gt) = fig.subplots(
       2, 2, sharex='col', sharey='row',
@@ -152,9 +157,12 @@ def plot_decompose_ata_scatter(
   ax_pr.set_zorder(1)
   ax_gt.set_zorder(1)
 
-  x_field, y_field = 'atr', 'atp'
-  metrics = metrics.sort_values('ata', ascending=False)
-  rank = metrics['ata'].rank(method='min', ascending=False)
+  if field == 'ata':
+    x_field, y_field = 'atr', 'atp'
+  elif field == 'idf1':
+    x_field, y_field = 'idr', 'idp'
+  metrics = metrics.sort_values(field, ascending=False)
+  rank = metrics[field].rank(method='min', ascending=False)
   trackers = list(metrics.index)
 
   def _plot_scatter(ax):
@@ -164,7 +172,7 @@ def plot_decompose_ata_scatter(
       y = row[y_field]
       color = colors[tracker] if colors is not None else None
       marker = markers[tracker] if markers is not None else None
-      label = '{:.3f} ({:g}) {:s}'.format(row['ata'], rank[tracker], tracker)
+      label = '{:.3f} ({:g}) {:s}'.format(row[field], rank[tracker], tracker)
       ax.plot(x, y, color=color, zorder=3, marker=marker, label=label)
     # Disable auto-scaling before plotting level sets.
     if level_set_power is not None:
@@ -197,28 +205,28 @@ def plot_decompose_ata_scatter(
   # Precision plot (upper left).
   plt.sca(ax_pr)
   ax_pr.xaxis.set_tick_params(which='both', labelbottom=True)
-  plot_decompose_ata_field(
-      metrics.sort_values('atp'), field='atp',
+  plot_decompose_field(
+      y_field, metrics.sort_values(y_field),
       horizontal=False, show_markers=True, colors=colors, markers=markers,
       legend_kwargs=dict(
           framealpha=1, loc='upper left', bbox_to_anchor=(-0.15 / aspect, -0.3),
-          title='Precision error (predicted tracks)'))
-  plt.ylabel('ATP')
+          title='Precision error'))
+  plt.ylabel(y_field.upper())
 
   # Recall plot (lower right).
   plt.sca(ax_gt)
   ax_gt.yaxis.set_tick_params(which='both', labelbottom=True)
-  plot_decompose_ata_field(
-      metrics.sort_values('atr'), field='atr',
+  plot_decompose_field(
+      x_field, metrics.sort_values(x_field),
       horizontal=True, show_markers=True, colors=colors, markers=markers,
       legend_kwargs=dict(
           framealpha=1, loc='lower right', bbox_to_anchor=(-0.3, -0.1 / aspect),
-          title='Recall error (ground-truth tracks)'))
-  plt.xlabel('ATR')
+          title='Recall error'))
+  plt.xlabel(x_field.upper())
 
 
-def plot_decompose_ata_field(
-    metrics, field,
+def plot_decompose_field(
+    field, metrics,
     colors=None,
     markers=None,
     horizontal=False,
@@ -227,7 +235,7 @@ def plot_decompose_ata_field(
     ax=None):
   """Generates decomposition bar plot for ATA, ATR or ATP.
 
-  Sub-routine of plot_decompose_ata_scatter.
+  Sub-routine of plot_decompose_scatter.
 
   Args:
     metrics: pd.DataFrame with index (tracker).
@@ -266,6 +274,26 @@ def plot_decompose_ata_field(
           'atp_error_union_det',
           'atp_approx',
       ],
+
+      'idf1': [
+          'idf1_error_det_fn',
+          'idf1_error_det_fp',
+          'idf1_error_ass_split',
+          'idf1_error_ass_merge',
+          'idf1_approx',
+      ],
+      'idr': [
+          'idr_error_det_fn',
+          'idr_error_ass_split',
+          'idr_error_ass_merge',
+          'idr_approx',
+      ],
+      'idp': [
+          'idp_error_det_fp',
+          'idp_error_ass_merge',
+          'idp_error_ass_split',
+          'idp_approx',
+      ],
   }
 
   field_names = {
@@ -291,6 +319,23 @@ def plot_decompose_ata_field(
       'atp_error_union': 'union (FN, split)',
       'atp_error_union_det': 'FN det (in partner, not in track)',
       'atp_error_union_ass': 'Split (in partner, not in track)',
+
+      # IDF1.
+      'idf1_error_det_fn': 'Det FN',
+      'idf1_error_det_fp': 'Det FP',
+      'idf1_error_ass_split': 'Split',
+      'idf1_error_ass_merge': 'Merge',
+      'idf1_approx': None,
+      # ID recall.
+      'idr_error_det_fn': 'FN det',
+      'idr_error_ass_split': 'Split',
+      'idr_error_ass_merge': 'Merge',
+      'idr_approx': None,
+      # ID precision.
+      'idp_error_det_fp': 'FP det',
+      'idp_error_ass_merge': 'Merge',
+      'idp_error_ass_split': 'Split',
+      'idp_approx': None,
   }
 
   cmap = cm.get_cmap('Pastel1')
@@ -319,6 +364,23 @@ def plot_decompose_ata_field(
       'atp_error_union': bad[4],
       'atp_error_union_det': bad[0],  # Det FN
       'atp_error_union_ass': bad[2],  # Assoc split
+
+      # IDF1.
+      'idf1_approx': good[0],
+      'idf1_error_det_fn': bad[0],
+      'idf1_error_det_fp': bad[1],
+      'idf1_error_ass_split': bad[2],
+      'idf1_error_ass_merge': bad[3],
+      # ID recall.
+      'idr_approx': good[0],
+      'idr_error_det_fn': bad[0],
+      'idr_error_ass_split': bad[2],
+      'idr_error_ass_merge': bad[3],
+      # ID precision.
+      'idp_approx': good[0],
+      'idp_error_det_fp': bad[1],
+      'idp_error_ass_split': bad[2],
+      'idp_error_ass_merge': bad[3],
   }
 
   components = field_to_components[field]
